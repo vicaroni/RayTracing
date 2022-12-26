@@ -17,7 +17,7 @@ impl Sphere {
 }
 
 impl Hittable for Sphere {
-    fn hit(&self, r: &Ray, t_min: f64, t_max: f64, rec: &mut HitRecord) -> bool {
+    fn hit(&self, r: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
         let oc = *r.origin() - self.center;
         let a = r.direction().length_squared();
         let half_b = Vec3::dot(oc, *r.direction());
@@ -25,7 +25,7 @@ impl Hittable for Sphere {
         let disc = half_b * half_b - a * c;
 
         if disc < 0. {
-            false
+            None
         } else {
             let sqrtd = disc.sqrt();
             let mut root = (-half_b - sqrtd) / a;
@@ -33,13 +33,11 @@ impl Hittable for Sphere {
             if root < t_min || root > t_max {
                 root = (-half_b + sqrtd) / a;
                 if root < t_min || root > t_max {
-                    return false;
+                    return None;
                 }
             }
-            rec.t = root;
-            rec.p = r.at(root);
-            rec.set_face_normal(r, &((rec.p - self.center) / self.radius));
-            true
+            let p = r.at(root);
+            Some(HitRecord::from(p, root, r, &((p - self.center) / self.radius)))
         }
     }
 }
