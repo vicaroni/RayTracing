@@ -16,19 +16,20 @@ mod camera;
 
 use vec3::{Color, write_color, Vec3, Point};
 use ray::Ray;
-use hittable::{Hittable, HitRecord, HittableList};
+use hittable::{Hittable, HittableList};
 use sphere::Sphere;
 use camera::Camera;
 
 fn ray_color(r: Ray, world: &impl Hittable, rng: &mut impl Rng, depth: usize) -> Color {
-    let mut rec = HitRecord::new();
     if depth == 0 {
         Color::new()
-    } else if world.hit(&r, 0.001, f64::INFINITY, &mut rec) {
+    } else if let Some(rec) = world.hit(&r, 0.001, f64::INFINITY) {
         #[cfg(feature = "random_in_hemisphere")]
         let target = rec.p + rec.normal + Vec3::random_in_hemisphere(&rec.normal, rng);
+
         #[cfg(feature = "random_unit_vector")]
         let target = rec.p + rec.normal + Vec3::random_unit_vector(rng);
+        
         0.5 * ray_color(Ray::ray(rec.p, target - rec.p), world, rng, depth - 1)
     } else {
         let unit_direction = Vec3::unit_vector(*r.direction());
