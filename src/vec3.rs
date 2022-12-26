@@ -1,15 +1,21 @@
 use std::{ops, fmt::Display};
 
+use rand::{
+    Rng,
+    distributions::Uniform
+};
+
+#[derive(Clone, Copy, Debug)]
 pub struct Vec3 {
     e: [f64; 3]
 }
 
 impl Vec3 {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { e: [0., 0., 0.] }
     }
 
-    pub fn from(e0: f64, e1: f64, e2: f64) -> Self {
+    pub const fn from(e0: f64, e1: f64, e2: f64) -> Self {
         Self { e: [e0, e1, e2] }
     }
 
@@ -33,9 +39,36 @@ impl Vec3 {
         Self::from(u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0])
     }
 
-    pub fn unit_length(v: Self) -> Self {
+    pub fn unit_vector(v: Self) -> Self {
         let len = v.length();
         v / len
+    }
+
+    pub fn random(rng: &mut impl Rng) -> Self {
+        Self { e: [rng.gen(), rng.gen(), rng.gen()] }
+    }
+
+    pub fn random_in(rng: &mut impl Rng, min: f64, max: f64) -> Self {
+        let dist = Uniform::new(min, max);
+        Self { e: [rng.sample(&dist), rng.sample(&dist), rng.sample(&dist)]}
+    }
+
+    pub fn random_in_unit_sphere(rng: &mut impl Rng) -> Self {
+        loop {
+            let p = Self::random_in(rng, -1., 1.);
+            if p.length_squared() < 1. { return p; }
+        }
+    }
+
+    #[cfg(feature = "random_in_hemisphere")]
+    pub fn random_in_hemisphere(normal: &Vec3, rng: &mut impl Rng) -> Self {
+        let in_unit_sphere = Self::random_in_unit_sphere(rng);
+        if Self::dot(in_unit_sphere, *normal) > 0. { in_unit_sphere } else { -in_unit_sphere }
+    }
+
+    #[cfg(feature = "random_unit_vector")]
+    pub fn random_unit_vector(rng: &mut impl Rng) -> Self {
+        Self::unit_vector(Self::random_in_unit_sphere(rng))
     }
 }
 
@@ -127,3 +160,14 @@ impl Display for Vec3 {
         write!(f, "{} {} {}", self[0], self[1], self[2])
     }
 }
+
+pub type Color = Vec3;
+
+pub fn write_color(color: Color, samples: usize) {
+    let clamp = |n: f64| {n.max(0.).min(0.999)};
+    let scale = 1. / samples as f64;
+    let (r, g, b) = ((color.x() * scale).sqrt(), (color.y() * scale).sqrt(), (color.z() * scale).sqrt());
+    println!("{} {} {}", 256. * clamp(r), 256. * clamp(g), 256. * clamp(b))
+}
+
+pub type Point = Vec3;
