@@ -2,7 +2,7 @@ use std::{ops, fmt::Display};
 
 use crate::rng;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec3 {
     e: [f64; 3]
 }
@@ -191,3 +191,22 @@ pub fn write_color(color: Color, samples: usize) {
 }
 
 pub type Point = Vec3;
+
+#[cfg(test)]
+mod tests {
+    use super::Vec3;
+
+    #[test]
+    fn test_dot() {
+        let v = Vec3::from(1.2, 0.5, 1.);
+        let w = Vec3::from(1.5, 0.2, 2.);
+        assert_eq!(Vec3::dot(v, w), 3.9)
+    }
+
+    #[test]
+    fn test_refract_normal() {
+        let vec = Vec3::from(1., 0., 0.);
+        let etai_etat = 1.;
+        assert_eq!(Vec3::refract(&vec, &-vec, etai_etat), vec);
+    }
+}
