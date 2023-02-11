@@ -79,7 +79,7 @@ impl Vec3 {
     pub fn refract(uv: &Vec3, n: &Vec3, etai_etat: f64) -> Self {
         let cos = Self::dot(-*uv, *n).min(1.);
         let r_out_perp = etai_etat * (*uv + cos * n);
-        let r_out_par = -((1. - r_out_perp.length_squared()).abs().sqrt()) * n;
+        let r_out_par = -(1. - r_out_perp.length_squared()).abs().sqrt() * n;
         r_out_perp + r_out_par
     }
 }
@@ -87,7 +87,7 @@ impl Vec3 {
 impl ops::Neg for Vec3 {
     type Output = Self;
     fn neg(self) -> Self::Output {
-        Self::Output::from(self.e[0], self.e[1], self.e[2])
+        Self::Output::from(-self.e[0], -self.e[1], -self.e[2])
     }
 }
 
