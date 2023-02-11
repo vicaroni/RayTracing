@@ -1,9 +1,6 @@
 use std::{ops, fmt::Display};
 
-use rand::{
-    Rng,
-    distributions::Uniform
-};
+use crate::rng;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Vec3 {
@@ -44,31 +41,46 @@ impl Vec3 {
         v / len
     }
 
-    pub fn random(rng: &mut impl Rng) -> Self {
-        Self { e: [rng.gen(), rng.gen(), rng.gen()] }
+    pub fn random() -> Self {
+        Self { e: [rng::gen(), rng::gen(), rng::gen()] }
     }
 
-    pub fn random_in(rng: &mut impl Rng, min: f64, max: f64) -> Self {
-        let dist = Uniform::new(min, max);
-        Self { e: [rng.sample(&dist), rng.sample(&dist), rng.sample(&dist)]}
+    pub fn random_in(min: f64, max: f64) -> Self {
+        Self { e: [rng::sample(min, max), rng::sample(min, max), rng::sample(min, max)]}
     }
 
-    pub fn random_in_unit_sphere(rng: &mut impl Rng) -> Self {
+    pub fn random_in_unit_sphere() -> Self {
         loop {
-            let p = Self::random_in(rng, -1., 1.);
+            let p = Self::random_in(-1., 1.);
             if p.length_squared() < 1. { return p; }
         }
     }
 
     #[cfg(feature = "random_in_hemisphere")]
-    pub fn random_in_hemisphere(normal: &Vec3, rng: &mut impl Rng) -> Self {
-        let in_unit_sphere = Self::random_in_unit_sphere(rng);
+    pub fn random_in_hemisphere(normal: &Vec3) -> Self {
+        let in_unit_sphere = Self::random_in_unit_sphere();
         if Self::dot(in_unit_sphere, *normal) > 0. { in_unit_sphere } else { -in_unit_sphere }
     }
 
     #[cfg(feature = "random_unit_vector")]
-    pub fn random_unit_vector(rng: &mut impl Rng) -> Self {
-        Self::unit_vector(Self::random_in_unit_sphere(rng))
+    pub fn random_unit_vector() -> Self {
+        Self::unit_vector(Self::random_in_unit_sphere())
+    }
+
+    pub fn near_zero(&self) -> bool {
+        const S: f32 = 1e-8;
+        self.x().abs() < S as f64 && self.y().abs() < S as f64 && self.z().abs() < S as f64
+    }
+
+    pub fn reflect(v: &Vec3, n: &Vec3) -> Vec3 {
+        *v - 2. * Self::dot(*v, *n) * n
+    }
+
+    pub fn refract(uv: &Vec3, n: &Vec3, etai_etat: f64) -> Self {
+        let cos = Self::dot(-*uv, *n).min(1.);
+        let r_out_perp = etai_etat * (*uv + cos * n);
+        let r_out_par = -((1. - r_out_perp.length_squared()).abs().sqrt()) * n;
+        r_out_perp + r_out_par
     }
 }
 
@@ -127,6 +139,13 @@ impl ops::Mul<Vec3> for f64 {
     }
 }
 
+impl ops::Mul<&Vec3> for f64 {
+    type Output = Vec3;
+    fn mul(self, rhs: &Vec3) -> Self::Output {
+        *rhs * self
+    }
+}
+
 impl ops::Div<f64> for Vec3 {
     type Output = Self;
     fn div(self, rhs: f64) -> Self::Output {
@@ -155,6 +174,7 @@ impl ops::DivAssign<f64> for Vec3 {
         *self *= 1./rhs;
     }
 }
+
 impl Display for Vec3 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {} {}", self[0], self[1], self[2])
