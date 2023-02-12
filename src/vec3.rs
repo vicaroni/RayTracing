@@ -36,9 +36,8 @@ impl Vec3 {
         Self::from(u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0])
     }
 
-    pub fn unit_vector(v: Self) -> Self {
-        let len = v.length();
-        v / len
+    pub fn unit_vector(self) -> Self {
+        self / self.length()
     }
 
     pub fn random() -> Self {
