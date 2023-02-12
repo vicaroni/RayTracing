@@ -1,4 +1,11 @@
-use std::{ops, fmt::Display};
+use std::{
+    ops,
+    fmt::Display,
+    io::{
+        StdoutLock,
+        Write
+    }
+};
 
 use crate::rng;
 
@@ -64,6 +71,15 @@ impl Vec3 {
     #[cfg(feature = "random_unit_vector")]
     pub fn random_unit_vector() -> Self {
         Self::unit_vector(Self::random_in_unit_sphere())
+    }
+
+    pub fn random_in_unit_disk() -> Self {
+        loop {
+            let p = Self::from(rng::sample(-1., 1.), rng::sample(-1., 1.), 0.);
+            if p.length_squared() < 1. {
+                return p;
+            }
+        }
     }
 
     pub fn near_zero(&self) -> bool {
@@ -182,11 +198,11 @@ impl Display for Vec3 {
 
 pub type Color = Vec3;
 
-pub fn write_color(color: Color, samples: usize) {
+pub fn write_color(color: Color, samples: usize, lock: &mut StdoutLock) {
     let clamp = |n: f64| {n.max(0.).min(0.999)};
     let scale = 1. / samples as f64;
     let (r, g, b) = ((color.x() * scale).sqrt(), (color.y() * scale).sqrt(), (color.z() * scale).sqrt());
-    println!("{} {} {}", 256. * clamp(r), 256. * clamp(g), 256. * clamp(b))
+    writeln!(lock, "{} {} {}", 256. * clamp(r), 256. * clamp(g), 256. * clamp(b)).unwrap();
 }
 
 pub type Point = Vec3;

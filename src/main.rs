@@ -1,5 +1,5 @@
 use std::{
-    io::{stderr, Write},
+    io::{stdout, stderr, Write},
     rc::Rc
 };
 
@@ -42,7 +42,6 @@ fn main() {
     const IMAGE_HEIGHT: u16 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u16;
     const SAMPLES_PER_PIXEL: u8 = 100;
     const MAX_DEPTH: u8 = 100;
-    let r = (std::f64::consts::PI / 4.).cos();
 
     let (mat_ground, mat_center, mat_left, mat_right) = (
         Rc::new(material::Lambertian { albedo: Color::from(0.8, 0.8, 0.)}),
@@ -59,11 +58,24 @@ fn main() {
         Rc::new(Sphere { center: Point::from(1., 0., -1.), radius: 0.5, mat_ptr: mat_right})
     ]);
 
-    let cam = Camera::new(Point::from(-2., 2., 1.), Point::from(0., 0., -1.), Vec3::from(0., 1., 0.), 90., ASPECT_RATIO);
+    let (lookfrom, lookat) = (
+        Point::from(3., 3., 2.),
+        Point::from(0., 0., -1.)
+    );
+    let cam = Camera::new(
+        lookfrom,
+        lookat,
+        Vec3::from(0., 1., 0.),
+        20.,
+        ASPECT_RATIO,
+        2.,
+        (lookfrom - lookat).length()
+    );
 
-    println!("P3\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT);
+    let (mut out_lock, mut err_lock) = (stdout().lock(), stderr().lock());
+    writeln!(out_lock, "P3\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT).unwrap();
     for j in (0..IMAGE_HEIGHT).rev() {
-        eprint!("\rScanlines remaining: {}  ", j);
+        write!(err_lock, "\rScanlines remaining: {}  ", j).unwrap();
         stderr().flush().unwrap();
         for i in 0..IMAGE_WIDTH {
             let mut pixel_color = Color::new();
@@ -73,8 +85,8 @@ fn main() {
                     let r = cam.get_ray(u, v);
                     pixel_color += ray_color(r, &world, MAX_DEPTH as usize);
             }
-            write_color(pixel_color, SAMPLES_PER_PIXEL as usize);
+            write_color(pixel_color, SAMPLES_PER_PIXEL as usize, &mut out_lock);
         }
     }
-    eprintln!("\nDone");
+    writeln!(err_lock, "\nDone").unwrap();
 }
