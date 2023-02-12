@@ -44,17 +44,22 @@ fn main() {
     const MAX_DEPTH: u8 = 100;
     let r = (std::f64::consts::PI / 4.).cos();
 
-    let (mat_left, mat_right) = (
-        Rc::new(material::Lambertian { albedo: Color::from(0., 0., 1.)}),
-        Rc::new(material::Lambertian { albedo: Color::from(1., 0., 0.)}),
+    let (mat_ground, mat_center, mat_left, mat_right) = (
+        Rc::new(material::Lambertian { albedo: Color::from(0.8, 0.8, 0.)}),
+        Rc::new(material::Lambertian { albedo: Color::from(0.1, 0.2, 0.5)}),
+        Rc::new(material::Dielectric { ir: 1.5 }),
+        Rc::new(material::Metal::new(0.8, 0.6, 0.2, 0.))
     );
 
     let world = HittableList::with(vec![
-        Rc::new(Sphere { center: Point::from(-r, 0., -1.), radius: r, mat_ptr: mat_left}),
-        Rc::new(Sphere { center: Point::from(r, 0., -1.), radius: r, mat_ptr: mat_right})
+        Rc::new(Sphere { center: Point::from(0., -100.5, -1.), radius: 100., mat_ptr: mat_ground}),
+        Rc::new(Sphere { center: Point::from(0., 0., -1.), radius: 0.5, mat_ptr: mat_center}),
+        Rc::new(Sphere { center: Point::from(-1., 0., -1.), radius: 0.5, mat_ptr: mat_left.clone()}),
+        Rc::new(Sphere { center: Point::from(-1., 0., -1.), radius: -0.45, mat_ptr: mat_left}),
+        Rc::new(Sphere { center: Point::from(1., 0., -1.), radius: 0.5, mat_ptr: mat_right})
     ]);
 
-    let cam = Camera::new(90., ASPECT_RATIO);
+    let cam = Camera::new(Point::from(-2., 2., 1.), Point::from(0., 0., -1.), Vec3::from(0., 1., 0.), 90., ASPECT_RATIO);
 
     println!("P3\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT);
     for j in (0..IMAGE_HEIGHT).rev() {
