@@ -31,7 +31,7 @@ impl Material for Lambertian {
 #[derive(Debug)]
 pub struct Metal {
     pub albedo: Color,
-    fuzz: f64
+    pub fuzz: f64
 }
 
 impl Metal {
