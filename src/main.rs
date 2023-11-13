@@ -1,13 +1,18 @@
 use std::{
-    env,
-    fs::File,
-    io::{
-        Result,
-        stderr,
-        Write
-    },
-    rc::Rc
+    rc::Rc,
+    time::Instant
 };
+
+use winit::{
+    dpi::LogicalSize,
+    event::{
+        Event,
+        WindowEvent
+    },
+    event_loop::EventLoop,
+    window::WindowBuilder
+};
+use threadpool::ThreadPool;
 
 mod vec3;
 mod ray;
@@ -16,12 +21,18 @@ mod sphere;
 mod camera;
 mod material;
 mod rng;
+mod window;
 
-use vec3::{Color, write_color, Vec3, Point};
+use vec3::{
+    Color,
+    Vec3,
+    Point
+};
 use ray::Ray;
 use hittable::{Hittable, HittableList};
 use sphere::Sphere;
 use camera::Camera;
+use window::GraphicsContext;
 
 fn random_scene() -> HittableList {
     let mut world = HittableList::with(vec![
@@ -66,7 +77,7 @@ fn ray_color(r: Ray, world: &impl Hittable, depth: usize) -> Color {
     }
 }
 
-fn main() -> Result<()> {
+fn main() {
     const ASPECT_RATIO: f64 = 3.0 / 2.0;
     const IMAGE_WIDTH: u16 = 1200;
     const IMAGE_HEIGHT: u16 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u16;
@@ -89,22 +100,47 @@ fn main() -> Result<()> {
         10.
     );
 
-    let mut err_lock = stderr().lock();
-    let mut f = File::create(&env::args().collect::<Vec<_>>()[1])?;
-    writeln!(f, "P3\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT)?;
-    for j in (0..IMAGE_HEIGHT).rev() {
-        write!(err_lock, "\rScanlines remaining: {}  ", j)?;
-        err_lock.flush().unwrap();
-        for i in 0..IMAGE_WIDTH {
-            let mut pixel_color = Color::new();
-            for _ in 0..SAMPLES_PER_PIXEL {
-                let (u, v) = ((i as f64 + rng::gen::<f64>()) / (IMAGE_WIDTH - 1) as f64,
-                    (j as f64 + rng::gen::<f64>()) / (IMAGE_HEIGHT - 1) as f64);
-                    let r = cam.get_ray(u, v);
-                    pixel_color += ray_color(r, &world, MAX_DEPTH as usize);
-            }
-            write_color(pixel_color, SAMPLES_PER_PIXEL as usize, &mut f)?;
+    let event_loop = EventLoop::new().unwrap();
+    let window = WindowBuilder::new()
+        .with_title("Ray tracing in one weekend")
+        .with_inner_size(LogicalSize::new(IMAGE_WIDTH, IMAGE_HEIGHT))
+        .build(&event_loop).unwrap();
+
+    let mut ctx = GraphicsContext::new(&window);
+
+    // let pool = ThreadPool::new(8);
+    let mut i = 0;
+    let start = Instant::now();
+
+    // for i in 0..IMAGE_WIDTH as usize * IMAGE_HEIGHT as usize {
+    //     pool.execute(||{
+
+    //     })
+    // }
+
+    event_loop.run(move |event, elwt|{
+        match event {
+            Event::WindowEvent { event: WindowEvent::RedrawRequested, ..} => {
+                let mut pixel_color = Color::new();
+                // println!("Drawing {} / {}", i, IMAGE_WIDTH as usize * IMAGE_HEIGHT as usize);
+                for _ in 0..SAMPLES_PER_PIXEL {
+                    let (u, v) = (((i % IMAGE_WIDTH as usize) as f64 + rng::gen::<f64>()) / (IMAGE_WIDTH - 1) as f64,
+                        ((IMAGE_HEIGHT as usize - (i / IMAGE_WIDTH as usize)) as f64 + rng::gen::<f64>()) / (IMAGE_HEIGHT - 1) as f64);
+                        let r = cam.get_ray(u, v);
+                        pixel_color += ray_color(r, &world, MAX_DEPTH as usize);
+                }
+                window.pre_present_notify();
+                ctx.draw_pixel(i, pixel_color, SAMPLES_PER_PIXEL);
+                i += 1;
+            },
+            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => elwt.exit(),
+            Event::AboutToWait =>
+                if i < IMAGE_WIDTH as usize * IMAGE_HEIGHT as usize {
+                    window.request_redraw();
+                } else {
+                    println!("Done, took {:?}", start.elapsed());
+                },
+            _ => {}
         }
-    }
-    writeln!(err_lock, "\nDone")
+    }).unwrap();
 }
