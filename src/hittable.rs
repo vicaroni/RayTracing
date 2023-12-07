@@ -1,5 +1,5 @@
 use core::fmt::Debug;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::{
     vec3::{Vec3, Point},
@@ -11,7 +11,7 @@ use crate::{
 pub struct HitRecord {
     pub p: Point,
     pub normal: Vec3,
-    pub mat_ptr: Option<Rc<dyn Material>>,
+    pub mat_ptr: Option<Arc<dyn Material>>,
     pub t: f64,
     pub front_face: bool
 }
@@ -26,20 +26,20 @@ impl HitRecord {
         self.normal = if self.front_face { *outward_normal } else { -*outward_normal };
     }
 
-    pub fn from(p: Point, t: f64, r: &Ray, outward_normal: &Vec3, mat_ptr: Rc<dyn Material>) -> Self {
+    pub fn from(p: Point, t: f64, r: &Ray, outward_normal: &Vec3, mat_ptr: Arc<dyn Material>) -> Self {
         let mut ret = Self { p, normal: Vec3::new(), mat_ptr: Some(mat_ptr), t, front_face: false };
         ret.set_face_normal(r, outward_normal);
         ret
     }
 }
 
-pub trait Hittable: Debug {
+pub trait Hittable: Debug + Send + Sync {
     fn hit(&self, r: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord>;
 }
 
 #[derive(Debug)]
 pub struct HittableList {
-    objects: Vec<Rc<dyn Hittable>>
+    objects: Vec<Arc<dyn Hittable>>
 }
 
 impl HittableList {
@@ -47,7 +47,7 @@ impl HittableList {
         Self { objects: vec![] }
     }
 
-    pub const fn with(objects: Vec<Rc<dyn Hittable>>) -> Self {
+    pub const fn with(objects: Vec<Arc<dyn Hittable>>) -> Self {
         Self { objects }
     }
 
@@ -55,7 +55,7 @@ impl HittableList {
         self.objects.clear();
     }
 
-    pub fn add(&mut self, object: Rc<dyn Hittable>) {
+    pub fn add(&mut self, object: Arc<dyn Hittable>) {
         self.objects.push(object);
     }
 }

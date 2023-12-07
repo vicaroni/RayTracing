@@ -12,6 +12,7 @@ softbuffer = "0.3"
 threadpool = "1"
 
 [dependencies.rand]
+version = "0.8"
 features = ["small_rng"]
 
 [features]

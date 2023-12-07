@@ -1,7 +1,12 @@
 use std::{
-    rc::Rc,
+    sync::{
+        Arc,
+        mpsc::channel,
+    },
     time::Instant
 };
+
+use once_cell::sync::Lazy;
 
 use winit::{
     dpi::LogicalSize,
@@ -34,28 +39,42 @@ use sphere::Sphere;
 use camera::Camera;
 use window::GraphicsContext;
 
+const ASPECT_RATIO: f64 = 3.0 / 2.0;
+
+static CAMERA: Lazy<Camera> = Lazy::new(|| Camera::new(
+    Point::from(13., 2., 3.),
+    Point::from(0., 0., 0.),
+    Vec3::from(0., 1., 0.),
+    20.,
+    ASPECT_RATIO,
+    0.1,
+    10.
+));
+
+static WORLD: Lazy<HittableList> = Lazy::new(random_scene);
+
 fn random_scene() -> HittableList {
     let mut world = HittableList::with(vec![
-        Rc::new(Sphere {center: Point::from(0., -1000., 0.), radius: 1000.,
-            mat_ptr: Rc::new(material::Lambertian { albedo: Color::from(0.5, 0.5, 0.5)})})
+        Arc::new(Sphere {center: Point::from(0., -1000., 0.), radius: 1000.,
+            mat_ptr: Arc::new(material::Lambertian { albedo: Color::from(0.5, 0.5, 0.5)})})
     ]);
 
     for a in -11..11 {
         for b in -11..11 {
             let center = Point::from(a as f64 + 0.9 * rng::gen::<f64>(), 0.2, b as f64 + 0.9 * rng::gen::<f64>());
             if (center - Point::from(4., 0.2, 0.)).length() > 0.9 {
-                world.add(Rc::new(Sphere { center, radius: 0.2, mat_ptr: match rng::gen::<f64>() {
-                    x if x < 0.8 => Rc::new(material::Lambertian { albedo: Color::random() * Color::random()}),
-                    x if x < 0.95 => Rc::new(material::Metal { albedo: Color::random_in(0.5, 1.), fuzz: rng::sample(0., 0.5)}),
-                    _ => Rc::new(material::Dielectric {ir: 1.5})
+                world.add(Arc::new(Sphere { center, radius: 0.2, mat_ptr: match rng::gen::<f64>() {
+                    x if x < 0.8 => Arc::new(material::Lambertian { albedo: Color::random() * Color::random()}),
+                    x if x < 0.95 => Arc::new(material::Metal { albedo: Color::random_in(0.5, 1.), fuzz: rng::sample(0., 0.5)}),
+                    _ => Arc::new(material::Dielectric {ir: 1.5})
                 }}));
             }
         }
     }
 
-    world.add(Rc::new(Sphere { center: Point::from(0., 1., 0.), radius: 1., mat_ptr: Rc::new(material::Dielectric { ir: 1.5 })}));
-    world.add(Rc::new(Sphere { center: Point::from(-4., 1., 0.), radius: 1., mat_ptr: Rc::new(material::Lambertian { albedo: Color::from(0.4, 0.2, 0.1)})}));
-    world.add(Rc::new(Sphere { center: Point::from(4., 1., 0.), radius: 1., mat_ptr: Rc::new(material::Metal::new(0.7, 0.6, 0.5, 0.))}));
+    world.add(Arc::new(Sphere { center: Point::from(0., 1., 0.), radius: 1., mat_ptr: Arc::new(material::Dielectric { ir: 1.5 })}));
+    world.add(Arc::new(Sphere { center: Point::from(-4., 1., 0.), radius: 1., mat_ptr: Arc::new(material::Lambertian { albedo: Color::from(0.4, 0.2, 0.1)})}));
+    world.add(Arc::new(Sphere { center: Point::from(4., 1., 0.), radius: 1., mat_ptr: Arc::new(material::Metal::new(0.7, 0.6, 0.5, 0.))}));
     world
 }
 
@@ -78,27 +97,11 @@ fn ray_color(r: Ray, world: &impl Hittable, depth: usize) -> Color {
 }
 
 fn main() {
-    const ASPECT_RATIO: f64 = 3.0 / 2.0;
-    const IMAGE_WIDTH: u16 = 1200;
+    const IMAGE_WIDTH: u16 = 800;
     const IMAGE_HEIGHT: u16 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u16;
-    const SAMPLES_PER_PIXEL: u16 = 500;
+    const SAMPLES_PER_PIXEL: u16 = 250;
+    const SCALE: f64 = 255. / SAMPLES_PER_PIXEL as f64;
     const MAX_DEPTH: u8 = 50;
-
-    let world = random_scene();
-
-    let (lookfrom, lookat) = (
-        Point::from(13., 2., 3.),
-        Point::from(0., 0., 0.)
-    );
-    let cam = Camera::new(
-        lookfrom,
-        lookat,
-        Vec3::from(0., 1., 0.),
-        20.,
-        ASPECT_RATIO,
-        0.1,
-        10.
-    );
 
     let event_loop = EventLoop::new().unwrap();
     let window = WindowBuilder::new()
@@ -108,37 +111,47 @@ fn main() {
 
     let mut ctx = GraphicsContext::new(&window);
 
-    // let pool = ThreadPool::new(8);
-    let mut i = 0;
+    let (tx, rx) = channel();
+    let pool = ThreadPool::new(8);
     let start = Instant::now();
 
-    // for i in 0..IMAGE_WIDTH as usize * IMAGE_HEIGHT as usize {
-    //     pool.execute(||{
+    for i in 0..IMAGE_WIDTH as usize * IMAGE_HEIGHT as usize {
+        let (cam, world, tx) = (&*CAMERA, &*WORLD, tx.clone());
+        pool.execute(move ||{
+            let mut color = Color::new();
+            for _ in 0..SAMPLES_PER_PIXEL {
+                let (u, v) = (((i % IMAGE_WIDTH as usize) as f64 + rng::gen::<f64>()) / (IMAGE_WIDTH - 1) as f64,
+                    ((IMAGE_HEIGHT as usize - (i / IMAGE_WIDTH as usize)) as f64 + rng::gen::<f64>()) / (IMAGE_HEIGHT - 1) as f64);
+                    let r = cam.get_ray(u, v);
+                    color += ray_color(r, world, MAX_DEPTH as usize);
+            }
+            tx.send((i, ((color.x() * SCALE) as u32) << 16 | ((color.y() * SCALE) as u32) << 8 | ((color.z() * SCALE) as u32))).expect("Canale in attesa");
+        });
+    }
 
-    //     })
-    // }
+    drop(tx);
+    let (mut rx, mut rd) = (rx.iter().peekable(), 0usize);
 
     event_loop.run(move |event, elwt|{
         match event {
             Event::WindowEvent { event: WindowEvent::RedrawRequested, ..} => {
-                let mut pixel_color = Color::new();
-                // println!("Drawing {} / {}", i, IMAGE_WIDTH as usize * IMAGE_HEIGHT as usize);
-                for _ in 0..SAMPLES_PER_PIXEL {
-                    let (u, v) = (((i % IMAGE_WIDTH as usize) as f64 + rng::gen::<f64>()) / (IMAGE_WIDTH - 1) as f64,
-                        ((IMAGE_HEIGHT as usize - (i / IMAGE_WIDTH as usize)) as f64 + rng::gen::<f64>()) / (IMAGE_HEIGHT - 1) as f64);
-                        let r = cam.get_ray(u, v);
-                        pixel_color += ray_color(r, &world, MAX_DEPTH as usize);
-                }
                 window.pre_present_notify();
-                ctx.draw_pixel(i, pixel_color, SAMPLES_PER_PIXEL);
-                i += 1;
+                for _ in 0..IMAGE_WIDTH {
+                    let (i, pixel) = rx.next().expect("Errore ricezione");
+                    ctx.draw_pixel(i, pixel);
+                    rd += 1;
+                    if rd == IMAGE_WIDTH as usize * IMAGE_HEIGHT as usize {
+                        println!("Took {:?}", start.elapsed());
+                    }
+                }
             },
-            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => elwt.exit(),
+            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
+                elwt.exit();
+                std::process::exit(0);
+            },
             Event::AboutToWait =>
-                if i < IMAGE_WIDTH as usize * IMAGE_HEIGHT as usize {
+                if rx.peek().is_some() {
                     window.request_redraw();
-                } else {
-                    println!("Done, took {:?}", start.elapsed());
                 },
             _ => {}
         }

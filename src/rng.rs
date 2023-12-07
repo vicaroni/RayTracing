@@ -1,4 +1,4 @@
-use once_cell::unsync::Lazy;
+use once_cell::sync::Lazy;
 use rand::{Rng, rngs::SmallRng, SeedableRng, distributions::{Standard, Uniform}, prelude::Distribution};
 
 static mut RNG: Lazy<SmallRng> = Lazy::new(|| SmallRng::from_entropy());

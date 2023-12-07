@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::{
     vec3::{Point, Vec3},
@@ -11,7 +11,7 @@ use crate::{
 pub struct Sphere {
     pub center: Point,
     pub radius: f64,
-    pub mat_ptr: Rc<dyn Material>
+    pub mat_ptr: Arc<dyn Material>
 }
 
 // impl Sphere {
