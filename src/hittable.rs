@@ -17,10 +17,6 @@ pub struct HitRecord {
 }
 
 impl HitRecord {
-    pub const fn new() -> Self {
-        Self { p: Point::new(), normal: Vec3::new(), mat_ptr: None, t: 0., front_face: false }
-    }
-
     pub fn set_face_normal(&mut self, r: &Ray, outward_normal: &Vec3) {
         self.front_face = Vec3::dot(*r.direction(), *outward_normal) < 0.;
         self.normal = if self.front_face { *outward_normal } else { -*outward_normal };
@@ -43,16 +39,8 @@ pub struct HittableList {
 }
 
 impl HittableList {
-    pub const fn new() -> Self {
-        Self { objects: vec![] }
-    }
-
     pub const fn with(objects: Vec<Arc<dyn Hittable>>) -> Self {
         Self { objects }
-    }
-
-    pub fn clear(&mut self) {
-        self.objects.clear();
     }
 
     pub fn add(&mut self, object: Arc<dyn Hittable>) {

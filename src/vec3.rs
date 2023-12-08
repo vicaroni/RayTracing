@@ -1,11 +1,6 @@
 use std::{
-    fs::File,
     ops,
     fmt::Display,
-    io::{
-        Result,
-        Write
-    }
 };
 
 use crate::rng;
@@ -198,14 +193,6 @@ impl Display for Vec3 {
 }
 
 pub type Color = Vec3;
-
-pub fn write_color(color: Color, samples: usize, f: &mut File) -> Result<()> {
-    let clamp = |n: f64| {n.max(0.).min(0.999)};
-    let scale = 1. / samples as f64;
-    let (r, g, b) = ((color.x() * scale).sqrt(), (color.y() * scale).sqrt(), (color.z() * scale).sqrt());
-    writeln!(f, "{} {} {}", 256. * clamp(r), 256. * clamp(g), 256. * clamp(b))
-}
-
 pub type Point = Vec3;
 
 #[cfg(test)]

@@ -5,8 +5,6 @@ use softbuffer::{
     Surface
 };
 
-use crate::vec3::Color;
-
 pub struct GraphicsContext {
     surface: Surface,
 }

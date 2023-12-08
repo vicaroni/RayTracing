@@ -8,7 +8,7 @@ pub struct Camera {
     lower_left_corner: Point,
     horizontal: Vec3,
     vertical: Vec3,
-    u: Vec3, v: Vec3, w: Vec3,
+    u: Vec3, v: Vec3, // w: Vec3,
     lens_radius: f64
 }
 
@@ -27,7 +27,7 @@ impl Camera {
         Self {
             origin: lookfrom,
             lower_left_corner: lookfrom - horizontal / 2. - vertical / 2. - focus_dist * w,
-            horizontal, vertical, u, v, w, lens_radius: aperture / 2.
+            horizontal, vertical, u, v, lens_radius: aperture / 2.
         }
     }
 
